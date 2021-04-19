@@ -1,0 +1,308 @@
+
+-----------------------------------------------------Yêu cầu 2------------------------------------------------------------------------------
+
+-----1. Hãy cho biết có những khách hàng nào lại chính là đối tác cung cấp hàng của công ty (tức là có cùng tên giao dịch)
+SELECT
+	MAKHACHHANG,
+	KH.TENCONGTY,
+	KH.TENGIAODICH 
+FROM
+	KHACHHANG KH
+INNER JOIN NHACUNGCAP NCC ON KH.TENGIAODICH = NCC.TENGIAODICH;
+
+-----2. Những đơn đặt hàng nào yêu cầu giao hàng ngay tại địa chỉ của công ty (khách hàng) và những đơn đó là của công ty(khách hàng) nào?
+SELECT
+	DDH.SOHOADON,
+	KH.TENCONGTY,
+	KH.DIACHI,
+	DDH.NOIGIAOHANG 
+FROM
+	DONDATHANG DDH
+INNER JOIN KHACHHANG KH ON KH.DIACHI = DDH.NOIGIAOHANG;
+
+-----3. Những mặt hàng nào chưa từng được khách hàng đặt mua?
+SELECT
+	MH.MAHANG,
+	MH.TENHANG 
+FROM
+	MATHANG MH 
+WHERE
+	NOT EXISTS ( SELECT CTDH.MAHANG FROM CHITIETDATHANG CTDH WHERE CTDH.MAHANG = MH.MAHANG );
+
+-----4. Những nhân viên nào của công ty chưa từng lập bất kỳ một hoá đơn đặt hàng nào?
+SELECT
+	* 
+FROM
+	NHANVIEN NV 
+WHERE NOT EXISTS ( SELECT DDH.MANHANVIEN FROM DONDATHANG DDH WHERE NV.MANHANVIEN = DDH.MANHANVIEN );
+
+-----5. Trong năm 2017, những mặt hàng nào chỉ được đặt mua đúng một lần
+SELECT
+	MH.MAHANG,
+	TENHANG,
+	DDH.NGAYDATHANG,
+	COUNT( CTDH.MAHANG ) as SLDATHANG
+FROM MATHANG MH
+INNER JOIN CHITIETDATHANG CTDH ON CTDH.MAHANG = MH.MAHANG
+INNER JOIN DONDATHANG DDH ON CTDH.SOHOADON = DDH.SOHOADON 
+WHERE
+	YEAR ( DDH.NGAYDATHANG ) = 2017
+GROUP BY
+	CTDH.MAHANG,
+	MH.MAHANG,
+	MH.TENHANG 
+HAVING
+	COUNT( CTDH.MAHANG ) = 1;
+-----6. Hãy cho biết mỗi một khách hàng đã phải bỏ ra bao nhiêu tiền để đặt mua hàng của công ty?
+SELECT
+	KH.MAKHACHHANG,
+	KH.TENCONGTY,
+	KH.TENGIAODICH,
+	SUM(( CTDH.SOLUONG * CTDH.GIABAN ) - (CTDH.SOLUONG * CTDH.GIABAN * (CTDH.MUCGIAMGIA / 100))) AS SOTIEN 
+FROM
+	KHACHHANG KH
+	INNER JOIN DONDATHANG DDH ON DDH.MAKHACHHANG = KH.MAKHACHHANG
+	INNER JOIN CHITIETDATHANG CTDH ON CTDH.SOHOADON = DDH.SOHOADON 
+GROUP BY
+	KH.MAKHACHHANG,
+	KH.TENCONGTY,
+	KH.TENGIAODICH;
+
+-----7. Mỗi một nhân viên của công ty đã lập bao nhiêu đơn đặt hàng (nếu nhân viên chưa hề lập một hoá đơn nào thì cho kết quả là 0)
+SELECT
+	KH.MAKHACHHANG,
+	KH.TENCONGTY,
+	KH.TENGIAODICH,
+	SUM(( CTDH.SOLUONG * CTDH.GIABAN ) - (CTDH.SOLUONG * CTDH.GIABAN * (CTDH.MUCGIAMGIA / 100))) AS SOTIEN 
+FROM
+	KHACHHANG KH
+	INNER JOIN DONDATHANG DDH ON DDH.MAKHACHHANG = KH.MAKHACHHANG
+	INNER JOIN CHITIETDATHANG CTDH ON CTDH.SOHOADON = DDH.SOHOADON 
+GROUP BY
+	KH.MAKHACHHANG,
+	KH.TENCONGTY,
+	KH.TENGIAODICH;
+
+-----8. Cho biết tổng số tiền hàng mà cửa hàng thu được trong mỗi tháng của năm 2017 (thời được gian tính theo ngày đặt hàng).
+SELECT MONTH
+	( DDH.NGAYDATHANG ) AS THANG,
+	SUM( ( CTDH.SOLUONG * CTDH.GIABAN ) - ( CTDH.SOLUONG * CTDH.GIABAN * CTDH.MUCGIAMGIA / 100 ) ) AS THUNHAP 
+FROM
+	DONDATHANG DDH
+	INNER JOIN CHITIETDATHANG CTDH ON CTDH.SOHOADON = DDH.SOHOADON 
+WHERE
+	YEAR ( DDH.NGAYDATHANG ) = 2017 
+GROUP BY
+	MONTH ( DDH.NGAYDATHANG );
+
+-----9. Hãy cho biết tổng số lượng hàng của mỗi mặt hàng mà cty đã có (tổng số lượng hàng hiện có và đã bán).
+SELECT
+	MH.MAHANG,
+	MH.TENHANG,
+	MH.SOLUONG + CASE WHEN SUM( CTDH.SOLUONG ) IS NULL THEN 0 ELSE SUM( CTDH.SOLUONG ) END AS TONG 
+FROM
+	MATHANG MH
+LEFT OUTER JOIN CHITIETDATHANG CTDH ON CTDH.MAHANG = MH.MAHANG 
+GROUP BY
+	MH.MAHANG,
+	MH.TENHANG,
+	MH.SOLUONG;
+	
+-----10. Nhân viên nào của cty bán được số lượng hàng nhiều nhất và số lượng hàng bán được của nhân viên này là bao nhiêu?
+SELECT
+	NV.MANHANVIEN,
+	NV.HO,
+	NV.TEN,
+	SUM( CTDH.SOLUONG ) AS TONGHANG 
+FROM
+	NHANVIEN NV
+	INNER JOIN DONDATHANG DDH ON DDH.MANHANVIEN = NV.MANHANVIEN
+	INNER JOIN CHITIETDATHANG CTDH ON DDH.SOHOADON = CTDH.SOHOADON 
+GROUP BY
+	NV.MANHANVIEN,
+	NV.HO,
+	NV.TEN 
+ORDER BY
+	SUM( CTDH.SOLUONG ) DESC
+LIMIT 1;
+
+----.11. Mỗi một đơn đặt hàng đặt mua những mặt hàng nào và tổng số tiền mà mỗi đơn đặt hàng phải trả là bao nhiêu?
+SELECT 
+ DDH_MASTER.SOHOADON,
+ SUM(subQuery.TIEN_MAT_HANG) AS TONG_TIEN_DON_HANG
+FROM DONDATHANG DDH_MASTER
+INNER JOIN
+(
+SELECT
+	DDH.SOHOADON,
+	CTDH.MAHANG,
+	SUM( ( CTDH.SOLUONG * CTDH.GIABAN ) - ( CTDH.SOLUONG * CTDH.GIABAN * CTDH.MUCGIAMGIA / 100 ) ) AS TIEN_MAT_HANG
+FROM
+	DONDATHANG DDH
+	INNER JOIN CHITIETDATHANG CTDH ON CTDH.SOHOADON = DDH.SOHOADON 
+GROUP BY
+	DDH.SOHOADON,
+	CTDH.MAHANG
+) subQuery ON subQuery.SOHOADON = DDH_MASTER.SOHOADON
+GROUP BY
+	DDH_MASTER.SOHOADON;
+
+---.12. Hãy cho biết mỗi một loại hàng bao gồm những mặt hàng nào, tổng số lượng hàng của mỗi loại và tổng số lượng của tất cả các mặt hàng hiện có trong công ty là bao nhiêu?
+SELECT
+	LH.MALOAIHANG,
+	LH.TENLOAIHANG,
+	MH.MAHANG,
+	MH.TENHANG,
+	MH.SOLUONG 
+FROM
+	LOAIHANG LH
+	INNER JOIN MATHANG MH ON MH.MALOAIHANG = LH.MALOAIHANG;
+
+----13.  Thống kê xem trong năm 2017, mỗi một mặt hàng trong mỗi tháng và trong cả năm bán được với số lượng bao nhiêu.
+SELECT
+	CTDH.MAHANG,
+	MH.TENHANG,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 1 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG1,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 2 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG2,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 3 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG3,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 4 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG4,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 5 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG5,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 6 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG6,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 7 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG7,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 8 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG8,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 9 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG9,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 10 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG10,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 11 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG11,
+	SUM( CASE WHEN MONTH ( DDH.NGAYDATHANG ) = 12 THEN CTDH.SOLUONG ELSE 0 END ) AS THANG12,
+	SUM( CTDH.SOLUONG ) AS CANAM 
+FROM
+	DONDATHANG DDH
+	INNER JOIN CHITIETDATHANG CTDH ON CTDH.SOHOADON = DDH.SOHOADON
+	INNER JOIN MATHANG MH ON MH.MAHANG = CTDH.MAHANG 
+WHERE
+	YEAR ( DDH.NGAYDATHANG ) = 2017 
+GROUP BY
+	CTDH.MAHANG,
+	MH.TENHANG;
+
+-----14. Cập nhật lại giá trị NGAYCHUYENHANG của những bản ghi có giá trị NGAYCHUYENHANG chưa xác định (NULL) trong bảng DONDATHANG bằng với giá trị của trường NGAYDATHANG.
+UPDATE DONDATHANG
+SET NGAYCHUYENHANG = NGAYDATHANG
+WHERE NGAYCHUYENHANG IS NULL;
+
+----15. Cập nhật giá trị của trường NOIGIAOHANG trong bảng DONDATHANG bằng địa chỉ của khách hàng đối với những đơn đặt hàng chưa xác định được nơi giao hàng (có giá trị trường NOIGIAOHANG bằng NULL)
+UPDATE DONDATHANG
+SET NOIGIAOHANG = DIACHI
+FROM KHACHHANG
+WHERE DONDATHANG.MAKHACHHANG=KHACHHANG.MAKHACHHANG AND DONDATHANG.NOIGIAOHANG IS NULL
+
+----16. Cập nhật lại dữ liệu trong bảng KHACHHANG sao cho nếu tên công ty và tên giao dịch của khách hàng trùng với tên công ty và tên giao dịch của một nhà cung cấp nào đó thì địa chỉ, điện thoại, fax và email phải giống nhau.
+UPDATE KHACHHANG
+SET KHACHHANG.DIACHI = NCC.DIACHI,
+	KHACHHANG.DIENTHOAI = NCC.DIENTHOAI,
+	KHACHHANG.FAX = NCC.FAX
+FROM NHACUNGCAP NCC
+WHERE NCC.TENCONGTY = KHACHHANG.TENCONGTY AND NCC.TENGIAODICH = KHACHHANG.TENGIAODICH
+
+----17. Tăng lương lên gấp rưỡi cho những nhân viên bán được số lượng hàng nhiều hơn 100 trong năm 2017
+UPDATE NHANVIEN
+SET NHANVIEN.LUONGCOBAN = NHANVIEN.LUONGCOBAN * 1.5
+WHERE MANHANVIEN IN (SELECT MANHANVIEN FROM DONDATHANG DDH 
+							INNER JOIN CHITIETDATHANG CTDH ON DDH.SOHOADON = CTDH.SOHOADON
+							WHERE YEAR(DDH.NGAYDATHANG)=2017
+							GROUP BY MANHANVIEN
+							HAVING SUM(CTDH.SOLUONG) > 100)
+
+----18.  Tăng phụ cấp lên bằng 50% lương cho những nhân viên bán được hàng nhiều nhất.
+UPDATE NHANVIEN
+SET NHANVIEN.PHUCAP = NHANVIEN.PHUCAP * 1.5
+WHERE MANHANVIEN = (SELECT MANHANVIEN FROM DONDATHANG DDH 
+							INNER JOIN CHITIETDATHANG CTDH ON DDH.SOHOADON = CTDH.SOHOADON
+							GROUP BY MANHANVIEN
+							ORDER BY SUM(CTDH.SOLUONG) DESC LIMIT 1)
+
+-----19. Giảm 25% lương của những nhân viên trong năm 2017 ko lập được bất kỳ đơn đặt hàng nào
+
+CREATE TEMPORARY TABLE IF NOT EXISTS BANG_TAM_NHAN_VIEN_KHONG_BAN_HANG AS (
+SELECT MANHANVIEN 
+FROM NHANVIEN AS NV
+WHERE NOT EXISTS (SELECT DDH.MANHANVIEN FROM DONDATHANG AS DDH WHERE NV.MANHANVIEN=DDH.MANHANVIEN)
+)
+
+
+UPDATE NHANVIEN
+SET NHANVIEN.LUONGCOBAN = NHANVIEN.LUONGCOBAN * 0.85
+WHERE MANHANVIEN IN 
+(
+  SELECT * FROM BANG_TAM_NHAN_VIEN_KHONG_BAN_HANG
+)
+
+-----20. Xoá khỏi bảng MATHANG những mặt hàng có số lượng bằng 0 VÀ không được đặt mua trong bất kỳ đơn đặt hàng nào.
+DELETE FROM MATHANG
+WHERE MATHANG.SOLUONG = 0 AND MATHANG.MAHANG = (SELECT MH.MAHANG FROM MATHANG MH WHERE  
+												NOT EXISTS(SELECT CTDH.MAHANG  FROM CHITIETDATHANG CTDH WHERE CTDH.MAHANG = MH.MAHANG))
+
+
+-------------------------------------------------------------Yêu cầu 3--------------------------------------------------------------------
+							
+----1. Tạo thủ tục lưu trữ để thông qua thủ tục này có thể bổ sung thêm một bản ghi mới cho bảng MATHANG (thủ tục phải thực hiện kiểm tra tính hợp lệ của dữ liệu cần bổ sung: không trùng khoá chính và đảm bảo toàn vẹn tham chiếu)
+CREATE PROCEDURE INSERT_MATHANG (
+	@mahang VARCHAR(10) ,
+	@tenhang NVARCHAR(50),
+	@macongty VARCHAR(10),
+	@maloaihang VARCHAR(10),
+	@soluong INT,
+	@donvitinh NVARCHAR(20),
+	@giahang MONEY)
+AS
+	IF NOT EXISTS ( SELECT MAHANG FROM MATHANG 
+					WHERE MAHANG = @mahang)
+	IF ( @macongty IS NOT NULL 
+				   OR  EXISTS ( SELECT MACONGTY FROM NHACUNGCAP WHERE MACONGTY = @macongty))
+	IF (@maloaihang IS NOT NULL 
+				    OR  EXISTS ( SELECT MALOAIHANG FROM LOAIHANG WHERE MALOAIHANG = @maloaihang))
+
+	INSERT INTO MATHANG VALUES (@mahang, @tenhang, @macongty, @maloaihang, @soluong, @donvitinh, @giahang)
+
+----2. Tạo thủ tục lưu trữ có chức năng thống kê tổng số lượng hàng bán được của một mặt hàng có mã bất kỳ (mã mặt hàng cần thống kê là tham số của thủ tục).
+CREATE PROCEDURE THONGKEBANHANG (
+	@mahang VARCHAR(10)
+)
+AS 
+	SELECT MH.MAHANG, MH.TENHANG, MH.GIAHANG, SUM(CTDH.SOLUONG), MH.DONVITINH AS SOLUONGBANRA FROM MATHANG MH
+	LEFT OUTER JOIN CHITIETDATHANG CTDH ON CTDH.MAHANG = MH.MAHANG
+	WHERE MH.MAHANG = @mahang
+	GROUP BY MH.MAHANG, MH.TENHANG, MH.GIAHANG, MH.DONVITINH
+	
+----3. Viết trigger cho bảng CHITIETDATHANG theo yêu cầu sau:
+				-- Khi một bản ghi mới được bổ sung vào bảng này thì giảm số lượng hàng hiện có nếu số lượng hàng hiện có lớn hơn 
+					-- hoặc bằng số lượng hàng được bán ra. Ngược lại thì huỷ bỏ thao tác bổ sung.
+CREATE TRIGGER TRIGGER_INSERT_CHITIETDATHANG
+ON CHITIETDATHANG
+FOR INSERT
+AS
+BEGIN
+	DECLARE @mahang nvarchar(10)
+	DECLARE @soluongban int
+	DECLARE @soluongcon int
+	SELECT @mahang=MAHANG, @soluongban=SOLUONG
+	FROM inserted
+	SELECT @soluongcon=SOLUONG FROM MATHANG
+	WHERE MAHANG=@mahang
+	IF @soluongcon>=@soluongban
+		UPDATE MATHANG SET SOLUONG=SOLUONG-@soluongban
+		WHERE MAHANG=@mahang
+	ELSE
+		ROLLBACK TRANSACTION
+END
+
+----4. Viết trigger cho bảng CHITIETDATHANG để sao cho chỉ chấp nhận giá hàng bán ra phải nhỏ hơn hoặc bằng giá gốc (giá của mặt hàng trong bảng MATHANG)
+
+CREATE TRIGGER  CHITIETDATHANG_GIABAN
+ON CHITIETDATHANG
+FOR INSERT, UPDATE
+AS 
+	IF UPDATE(GIABAN) IF EXISTS (SELECT inserted.MAHANG FROM MATHANG MH
+									INNER JOIN inserted ON inserted.MAHANG = MH.MAHANG 
+									WHERE MH.GIAHANG > inserted.GIABAN)
+	ROLLBACK TRANSACTION
